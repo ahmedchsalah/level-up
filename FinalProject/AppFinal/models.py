@@ -41,14 +41,21 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    level = models.CharField(max_length=100, null=True, verbose_name=_('Level'))
     university = models.CharField(max_length=100, null=True, verbose_name=_('University'))
+    degree = models.CharField(max_length=100, null=True, verbose_name=_('Degree'))
+    speciality = models.CharField(max_length=50, null=True, verbose_name=_('speciality'))
+    courses_of_interest = models.CharField(max_length=255, null=True, verbose_name=_('Courses of Interest'))
+    img = models.ImageField(upload_to='images/', null=True)
+    score = models.IntegerField(default=0)
+    daily_time_spent = models.IntegerField(default=0)
+    weekly_time_spent = models.IntegerField(default=0)
+    monthly_time_spent = models.IntegerField(default=0)
 
 
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    grade = models.CharField(max_length=100, null=True, verbose_name=_('Grade'))
     university = models.CharField(max_length=100, null=True, verbose_name=_('University'))
+    img = models.ImageField(upload_to='images/', null=True)
 
 
 class Role(models.Model):
@@ -124,8 +131,8 @@ class Game(models.Model):
 class Enroll_Course(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    degree = models.CharField(max_length=75)
     progress = models.IntegerField()
+    score_earned = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

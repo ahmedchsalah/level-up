@@ -9,9 +9,10 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
+import os
 from datetime import timedelta
 from pathlib import Path
-from allauth.account.middleware import AccountMiddleware
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+
 ]
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -93,7 +95,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'final_project_db',
         'USER': 'root',
-        'PASSWORD': '123456',
+        'PASSWORD': '17047970',
         'HOST': 'localhost',
         'PORT': '3306'
     }
@@ -144,14 +146,14 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_PERMISSION_CLASSES': [
-#         'rest_framework.permissions.IsAuthenticated'
-#     ],
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
-#     ),
-# }
+REST_FRAMEWORK = {
+     'DEFAULT_PERMISSION_CLASSES': [
+         'rest_framework.permissions.IsAuthenticated'
+     ],
+     'DEFAULT_AUTHENTICATION_CLASSES': (
+         'rest_framework_simplejwt.authentication.JWTAuthentication',
+     ),
+ }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
@@ -219,6 +221,10 @@ AUTH_USER_MODEL = 'AppFinal.User'
 
 # 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
 
+# settings.py
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+# settings.py
+
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -232,7 +238,6 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 # settings.py
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # settings.py
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True

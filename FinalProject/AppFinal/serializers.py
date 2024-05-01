@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Student, Teacher, Role, User_Roles, Course
+from .models import User, Student, Teacher, Role, User_Roles, Course, Enroll_Course
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -26,12 +26,14 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
     # Define UserSerializer as a nested serializer
     user = UserSerializer()
 
-    level = serializers.CharField(max_length=30, required=True)
+    degree = serializers.CharField(max_length=30, required=True)
     university = serializers.CharField(max_length=100, required=True)
+    speciality = serializers.CharField(max_length=100, required=True)
+    courses_of_interest = serializers.CharField(max_length=255, required=False)
 
     class Meta:
         model = Student
-        fields = ['user', 'level', 'university']
+        fields = ['user', 'degree', 'university', 'speciality', 'courses_of_interest']
 
     def validate(self, attrs):
         # Access nested user data correctly
@@ -70,12 +72,11 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
 class TeacherRegisterSerializer(serializers.ModelSerializer):
     user = UserSerializer()
 
-    grade = serializers.CharField(max_length=30, required=True)
     university = serializers.CharField(max_length=100, required=True)
 
     class Meta:
         model = Student
-        fields = ['user', 'grade', 'university']
+        fields = ['user', 'university']
 
     def validate(self, attrs):
         password1 = attrs.get('password')
@@ -328,4 +329,18 @@ class StudentGoogleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['user', 'level', 'university']
+        fields = ['user', 'degree', 'university']
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = ['user', 'university', 'degree', 'speciality', 'img']
+
+
+class EnrollCourseSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(source='course.title')
+
+    class Meta:
+        model = Enroll_Course
+        fields = ['title', 'score_earned', 'progress', 'updated_at']
