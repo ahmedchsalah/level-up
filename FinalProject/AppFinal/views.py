@@ -1,17 +1,15 @@
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.generics import GenericAPIView
-from .serializers import StudentRegisterSerializer, TeacherRegisterSerializer, SpecialistRegisterSerializer, \
+from rest_framework.parsers import MultiPartParser, FormParser
+
+from .serializers import TeacherRegisterSerializer, SpecialistRegisterSerializer, \
     AdminRegisterSerializer, LoginSerializer, ManageCourseSerializer, PasswordResetRequestSerializer, \
     SetNewPasswordSerializer, ValidateEmailSerializer, ResendOTPSerializer, CourseSerializer, \
     TeacherCourseAssignmentSerializer, TeacherSerializer
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from .utils import send_code
-from .models import OneTimePassword, User, Course
+from .models import OneTimePassword, User, Course, Badge, User_Roles, Teacher
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -39,7 +37,8 @@ class RegisterStudentView(GenericAPIView):
             send_code(email)  # Access the user's email through the related user object
             return Response({
                 'data': serializer.data['user'],
-                'level': serializer.validated_data.get('level'),
+                'degree': serializer.validated_data.get('degree'),
+                'speciality': serializer.validated_data.get('speciality'),
                 'university': serializer.validated_data.get('university')
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -58,7 +57,6 @@ class RegisterTeacherView(GenericAPIView):
             send_code(email)
             return Response({
                 'data': serializer.data['user'],
-                'grade': serializer.validated_data.get('grade'),
                 'university': serializer.validated_data.get('university')
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -114,31 +112,45 @@ class ResendOTPView(GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class VerifiyUserEmail(GenericAPIView):
+class VerifyUserEmail(GenericAPIView):
     def post(self, request):
-        otpcode = request.data.get('otp')
+        otp = request.data.get('otp')
+        email = request.data.get('email')
+
+        # Check if both OTP and email are provided
+        if not otp or not email:
+            return Response({'message': 'Both OTP and email are required'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            user_code_obj = OneTimePassword.objects.get(code=otpcode)
-            user = user_code_obj.user
-            if not user.is_verified:
-                user.is_verified = True
-                user.save()
-                user_tokens = user.tokens()
-                return Response({
-                    'message': 'account email verified successfully',
-                    'email': user.email,
-                    'full_name': user.get_full_name(),
-                    'access_token': str(user_tokens.get('access')),
-                    'refresh_token': str(user_tokens.get('refresh'))
-                }, status=status.HTTP_200_OK)
+            user = User.objects.get(email=email)
+            user_code_obj = OneTimePassword.objects.get(code=otp, user=user)
+
+            # Check if the user is already verified
+            if user.is_verified:
+                return Response({'message': 'User already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Mark the user as verified and generate tokens
+            user.is_verified = True
+            user.save()
+            user_tokens = user.tokens()
+
             return Response({
-                'message': 'user already verified'
-            }, status=status.HTTP_204_NO_CONTENT)
+                'message': 'Account email verified successfully',
+                'email': user.email,
+                'full_name': user.get_full_name(),
+                'access_token': str(user_tokens.get('access')),
+                'refresh_token': str(user_tokens.get('refresh'))
+            }, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({'message': 'User with provided email does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
         except OneTimePassword.DoesNotExist:
-            return Response({'message': 'passcode not provided'}, status=status.HTTP_404)
+            return Response({'message': 'Invalid OTP code'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class LoginUserView(GenericAPIView):
+    permission_classes = [AllowAny]
     serializer_class = LoginSerializer
 
     def post(self, request):
@@ -239,3 +251,89 @@ class TeacherCourseAssignmentView(GenericAPIView):
         teacher = serializer.save()
         return Response(TeacherSerializer(teacher).data, status=status.HTTP_200_OK)
 
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Student, Enroll_Course
+from .serializers import StudentSerializer, EnrollCourseSerializer
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from .models import User_Roles, Student, Teacher, Course, Enroll_Course
+from .serializers import EnrollCourseSerializer
+
+
+class ProfileInfo(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_image_url(self, instance, img_field_name):
+        img_path = "file:///C:/Users/ADMI/Desktop/finale/FinalProject/"
+        img_name = getattr(instance, img_field_name).name if getattr(instance, img_field_name).name else ""
+        img_url = img_path + img_name if img_name else None
+        return img_url
+
+    def get(self, request, profile_id):
+        try:
+            user_role = User_Roles.objects.get(user_id=profile_id).role.name
+            response_data = {}
+
+            if user_role == "student":
+                student = Student.objects.get(user_id=profile_id)
+                enrolled_courses = Enroll_Course.objects.filter(student=student)
+                enroll_course_data = EnrollCourseSerializer(enrolled_courses, many=True).data
+                badges = Badge.objects.filter(students=student)
+                badge_names = [badge.name for badge in badges]
+
+                # Determine CanEdit based on user permission
+                can_edit = request.user == student.user
+
+                response_data = {
+                    'FirstName': student.user.first_name,
+                    'LastName': student.user.last_name,
+                    'University': student.university,
+                    'Speciality': student.speciality,
+                    'Score': student.score,
+                    'Badges': badge_names,
+                    'img': self.get_image_url(student, 'img'),
+                    'DailyTimeSpent': student.daily_time_spent,
+                    'WeeklyTimeSpent': student.weekly_time_spent,
+                    'MonthlyTimeSpent': student.monthly_time_spent,
+                    'EnrollCourse': enroll_course_data,
+                    'CanEdit': can_edit,
+                }
+
+            elif user_role == "teacher":
+                teacher = Teacher.objects.get(user_id=profile_id)
+                courses = Course.objects.filter(teacher=teacher)
+                course_data = [{'title': course.title} for course in courses]
+
+                response_data = {
+                    'FirstName': teacher.user.first_name,
+                    'LastName': teacher.user.last_name,
+                    'img': self.get_image_url(teacher, 'img'),
+                    'courses': course_data,
+                }
+
+            return Response(response_data)
+        except User_Roles.DoesNotExist:
+            return Response({'error': 'User role not found'}, status=404)
+        except (Student.DoesNotExist, Teacher.DoesNotExist):
+            return Response({'error': 'Profile not found'}, status=404)
+
+class SetStudentImage(APIView):
+    permission_classes = [AllowAny]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, student_id):
+        try:
+            student = Student.objects.get(id=student_id)
+        except Student.DoesNotExist:
+            return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StudentSerializer(student, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

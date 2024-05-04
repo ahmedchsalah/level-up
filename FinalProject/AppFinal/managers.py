@@ -5,12 +5,13 @@ from django.utils.translation import gettext_lazy as _
 
 
 class UserManager(BaseUserManager):
+
+
     def email_validator(self, email):
         try:
             validate_email(email)
         except ValidationError:
-            raise ValueError(_("please enter a valid email address"))
-
+            raise ValueError(_("Please enter a valid email address."))
     def create_user(self, email, first_name, last_name, password, **extra_fields):
         if email:
             email = self.normalize_email(email)
